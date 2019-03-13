@@ -34,25 +34,32 @@ namespace MyPlatform
         public void LoadPlugModules()
         {
             if (!System.IO.Directory.Exists(PlugModulePath)) throw new PlugModuleMangmentException("组件目录模组不存在，不能加载组件模组");
-            var files = System.IO.Directory.GetFiles(PlugModulePath, "*.dll", System.IO.SearchOption.TopDirectoryOnly);
-            foreach (var item in files)
+            Console.WriteLine("扫描组件目录");
+            var directoryModules = System.IO.Directory.GetDirectories(PlugModulePath);
+            foreach (var item in directoryModules)
             {
                 LoadAssembly(item);
             }
+            Console.WriteLine("加载组件完成");
+            Console.WriteLine("----------我是分割线-----------------");
+            Console.WriteLine();
         }
         /// <summary>
         /// 把指定文件加载，并找出组件模组。
         /// </summary>
         /// <param name="item"></param>
-        private void LoadAssembly(string item)
+        private void LoadAssembly(string directoryModule)
         {
-            Console.WriteLine("加载文件：{0}", item);
-            var buffer = System.IO.File.ReadAllBytes(item);
+            Console.WriteLine("加载组件模组：{0}", directoryModule);
+            System.IO.DirectoryInfo directoryInfo = new System.IO.DirectoryInfo(directoryModule);
+            var item = directoryInfo.GetFiles(directoryInfo.Name + ".*").FirstOrDefault(n => ".dll".Equals(n.Extension, StringComparison.CurrentCultureIgnoreCase)
+            || ".exe".Equals(n.Extension, StringComparison.CurrentCultureIgnoreCase));
+            if (item == null) return;
+            var buffer = System.IO.File.ReadAllBytes(item.FullName);
             Assembly assembly = null;
 #if DEBUG 
-            var dir = System.IO.Path.GetDirectoryName(item);
-            var pdfName = System.IO.Path.GetFileNameWithoutExtension(item) + ".pdb";
-            var pdbFullName =System.IO.Path.Combine(dir, pdfName);
+            var pdfName = directoryInfo.Name + ".pdb";
+            var pdbFullName = System.IO.Path.Combine(directoryModule, pdfName);
             if (System.IO.File.Exists(pdbFullName))
             {
                 var pdbbuffer = System.IO.File.ReadAllBytes(pdbFullName);
@@ -65,14 +72,25 @@ namespace MyPlatform
 #else
             assembly = Assembly.Load(buffer);
 #endif
-            var plugmodules = assembly.GetTypes()
-                .Where(n => typeof(IPlugModule).IsAssignableFrom(n) && n.IsClass && !n.IsAbstract)
-                .Select(n =>
+            var referencedAssemblies = assembly.GetReferencedAssemblies();
+            var appDomainAssemblies = AppDomain.CurrentDomain.GetAssemblies();
+            var notRefAssemblies = referencedAssemblies.Where(n => appDomainAssemblies.All(refass => refass.FullName != n.FullName)).ToArray();
+            foreach (var refAssembly in notRefAssemblies)
+            {
+                var refdllpath = System.IO.Path.Combine(directoryModule, string.Format("{0}.dll", refAssembly.Name));
+                if (System.IO.File.Exists(refdllpath))
                 {
-                    var plugModule = Activator.CreateInstance(n) as IPlugModule;
-                    plugModule.Init();
-                    return plugModule;
-                }).ToArray();
+                    var refdll = Assembly.Load(System.IO.File.ReadAllBytes(refdllpath));
+                }
+            }
+            var plugmodules = assembly.GetTypes()
+               .Where(n => typeof(IPlugModule).IsAssignableFrom(n) && n.IsClass && !n.IsAbstract)
+               .Select(n =>
+               {
+                   var plugModule = Activator.CreateInstance(n) as IPlugModule;
+                   plugModule.Init();
+                   return plugModule;
+               }).ToArray();
             PlugModules.AddRange(plugmodules);
             Console.WriteLine("成功加载组件数：{0}", plugmodules.Length);
         }

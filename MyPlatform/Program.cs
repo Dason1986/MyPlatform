@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -14,8 +15,18 @@ namespace MyPlatform
         [STAThread]
         static void Main()
         {
+
+            AppDomain.CurrentDomain.AssemblyResolve += (sender, args) =>
+            {
+                var appdomain = (AppDomain)sender;
+                var assies = appdomain.GetAssemblies();
+                var ass = assies.FirstOrDefault(n => n.FullName == args.Name);
+                return ass;
+            };
+       
             PlugModuleMangment mangment = new PlugModuleMangment();
             mangment.LoadPlugModules();
+            
             foreach (var itemModule in mangment.GetModules())
             {
                 Console.WriteLine("模组：{0}", itemModule.Name);
@@ -25,9 +36,11 @@ namespace MyPlatform
                     Console.WriteLine("执行组件");
                     itemPlug.Execute();
                     Console.WriteLine("执行完成");
+                    Console.WriteLine();
                 }
             }
             Console.ReadLine();
         }
+
     }
 }

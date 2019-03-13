@@ -11,7 +11,7 @@ namespace MyPlatform
     {
         public string Name { get { return "Hello Word组件模组"; } }
 
-        public Guid Id { get { return Guid.Parse("FB48F910-EFCA-4289-9093-6B857D6B7C75"); } }
+        public Guid Id { get { return Guid.Parse("F048F910-EFCA-4289-9093-6B857D6B7C75"); } }
 
         public IPlugItem[] GetPlugs()
         {
